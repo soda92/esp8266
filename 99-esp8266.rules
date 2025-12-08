@@ -1,0 +1,2 @@
+# Rule for ESP8266 (CH340) to create a symlink /dev/esp8266
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="esp8266", MODE="0666"
