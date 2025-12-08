@@ -3,6 +3,15 @@ import framebuf
 import il3820
 import time
 import network
+import ujson
+import usocket
+import ntptime
+
+# --- USER CONFIGURATION ---
+WIFI_SSID = "YOUR_WIFI_NAME"
+WIFI_PASS = "YOUR_WIFI_PASSWORD"
+
+UTC_OFFSET = 28800 
 
 # --- Hardware Setup ---
 spi = machine.SPI(1, baudrate=2000000, polarity=0, phase=0)
@@ -12,68 +21,115 @@ busy = machine.Pin(5, machine.Pin.IN)
 
 epd = il3820.EPD(spi, cs, dc, busy, rst=None)
 
-def scan_wifi():
-    """Scans for WiFi networks and returns a sorted list."""
-    print("Scanning for WiFi...")
+def connect_wifi():
+    print("Connecting to WiFi...")
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
+    if not wlan.isconnected():
+        wlan.connect(WIFI_SSID, WIFI_PASS)
+        for _ in range(20):
+            if wlan.isconnected():
+                break
+            time.sleep(1)
+            print(".")
+            
+    if wlan.isconnected():
+        print(f"Connected! IP: {wlan.ifconfig()[0]}")
+        return True
+    else:
+        print("WiFi Connection Failed")
+        return False
+
+def get_time():
+    print("Syncing Time...")
+    try:
+        ntptime.settime() 
+        now = time.time() + UTC_OFFSET
+        tm = time.localtime(now)
+        return "{:02d}:{:02d}".format(tm[3], tm[4]), "{}-{:02d}-{:02d}".format(tm[0], tm[1], tm[2])
+    except Exception as e:
+        print(f"NTP Error: {e}")
+        return "--:--", "--/--/--"
+
+def http_get(url):
+    """Generic HTTP GET"""
+    try:
+        _, _, host, path = url.split('/', 3)
+        if not path: path = ""
+        
+        addr = usocket.getaddrinfo(host, 80)[0][-1]
+        s = usocket.socket(usocket.AF_INET, usocket.SOCK_STREAM)
+        s.settimeout(10)
+        s.connect(addr)
+        
+        request = f"GET /{path} HTTP/1.0\r\nHost: {host}\r\nUser-Agent: ESP8266\r\n\r\n"
+        s.write(request.encode())
+        
+        response = b""
+        while True:
+            data = s.read(1024)
+            if not data: break
+            response += data
+        s.close()
+        
+        headers, body = response.split(b"\r\n\r\n", 1)
+        return body.decode('utf-8')
+    except Exception as e:
+        print(f"HTTP Error ({host}): {e}")
+        return None
+
+def get_weather():
+    # Attempt 1: Open-Meteo (HTTP)
+    # Beijing: 39.90, 116.40
+    print("Trying Open-Meteo...")
+    url = "http://api.open-meteo.com/v1/forecast?latitude=39.90&longitude=116.40&current_weather=true"
     
-    # scan() returns a list of tuples: (ssid, bssid, channel, RSSI, authmode, hidden)
-    networks = wlan.scan()
-    
-    # Sort by RSSI (Signal Strength) - stronger signal (closer to 0) first
-    # RSSI is index 3 in the tuple
-    networks.sort(key=lambda x: x[3], reverse=True)
-    
-    return networks
+    json_str = http_get(url)
+    if json_str:
+        try:
+            data = ujson.loads(json_str)
+            curr = data.get('current_weather', {})
+            temp = curr.get('temperature')
+            code = curr.get('weathercode')
+            return temp, f"Code: {code}"
+        except Exception as e:
+            print(f"JSON Parse Error: {e}")
+            print(f"Raw Body: {json_str[:100]}...") # Debug: Show first 100 chars
+            
+    return None, None
 
 def main():
-    print("Init Display...")
+    print("Init...")
     epd.init()
     
-    # 1. Clear Screen (White) to remove ghosting
-    print("Clearing...")
-    buf = bytearray([0xFF] * (128 * 296 // 8))
-    
-    # Reset pointers
-    epd._command(0x4E, bytearray([0x00]))
-    epd._command(0x4F, bytearray([0x00, 0x00]))
-    epd.set_frame_memory(buf)
-    epd.display_frame()
-    
-    # 2. Get Data
-    nets = scan_wifi()
-    print(f"Found {len(nets)} networks.")
-    
-    # 3. Draw UI
-    fb = framebuf.FrameBuffer(buf, 128, 296, framebuf.MONO_HLSB)
-    fb.fill(0xFF) # Clear buffer
-    
-    # Header
-    fb.fill_rect(0, 0, 128, 20, 0x00) # Black bar
-    fb.text("WIFI SCANNER", 15, 6, 0xFF) # White text
-    
-    y_pos = 25
-    for n in nets:
-        ssid = n[0].decode('utf-8')
-        rssi = n[3]
-        
-        # Format: "SSID (-Signal)"
-        # Truncate SSID if too long to fit
-        display_text = f"{ssid[:12]} ({rssi})"
-        
-        fb.text(display_text, 5, y_pos, 0x00)
-        y_pos += 12 # Move down for next line
-        
-        # Stop if we run out of screen space
-        if y_pos > 280:
-            break
-            
-    if not nets:
-        fb.text("No WiFi Found", 10, 40, 0x00)
+    if not connect_wifi():
+        return
 
-    # 4. Display
-    print("Updating Display...")
+    time_str, date_str = get_time()
+    temp, desc = get_weather()
+    
+    if temp is None:
+        temp = "??"
+        desc = "Net Error"
+
+    print(f"Time: {time_str}, Temp: {temp}")
+
+    print("Drawing UI...")
+    buf = bytearray(128 * 296 // 8)
+    fb = framebuf.FrameBuffer(buf, 128, 296, framebuf.MONO_HLSB)
+    fb.fill(0xFF) 
+    
+    fb.fill_rect(0, 0, 128, 24, 0x00)
+    fb.text(date_str, 25, 8, 0xFF)
+    
+    fb.text(time_str, 30, 50, 0x00)
+    fb.text(time_str, 31, 50, 0x00) 
+    
+    fb.rect(10, 80, 108, 60, 0x00)
+    fb.text("Beijing", 15, 90, 0x00)
+    fb.text(f"{temp} C", 15, 105, 0x00)
+    fb.text(str(desc), 15, 120, 0x00)
+    
     epd._command(0x4E, bytearray([0x00]))
     epd._command(0x4F, bytearray([0x00, 0x00]))
     epd.set_frame_memory(buf)
