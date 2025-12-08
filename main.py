@@ -1,52 +1,51 @@
 import machine
+import framebuf
+import il3820
 import time
 
-# Configuration
-# GPIO 4 is Pin D2 on NodeMCU/WeMos D1 Mini
-PIN_NUM = 4
+# ESP8266 Pins
+spi = machine.SPI(1, baudrate=2000000, polarity=0, phase=0) # Lower speed to be safe
+cs = machine.Pin(15, machine.Pin.OUT)
+dc = machine.Pin(4, machine.Pin.OUT)
+busy = machine.Pin(5, machine.Pin.IN)
 
-# Initialize PWM for the buzzer
-# PWM allows us to change frequency (pitch) for passive buzzers
-# or just turn it on/off for active buzzers.
-try:
-    buzzer = machine.PWM(machine.Pin(PIN_NUM))
-except Exception as e:
-    print(f"Error initializing PWM: {e}")
-    # Fallback to simple GPIO if PWM fails (rare)
-    buzzer = machine.Pin(PIN_NUM, machine.Pin.OUT)
-
-def quiet():
-    """Silence the buzzer."""
-    if isinstance(buzzer, machine.PWM):
-        buzzer.duty(0)
-    else:
-        buzzer.value(0)
-
-def beep(freq=1000, duration_ms=100):
-    """Play a beep."""
-    if isinstance(buzzer, machine.PWM):
-        buzzer.freq(freq)      # Set pitch
-        buzzer.duty(512)       # Set volume/power (512 is 50%)
-    else:
-        buzzer.value(1)        # Simple ON
-    
-    time.sleep_ms(duration_ms)
-    quiet()
+epd = il3820.EPD(spi, cs, dc, busy, rst=None)
 
 def main():
-    print("Initializing...")
-    quiet() # Ensure it starts silent
-    time.sleep(1) # Wait a second
+    print("Init...")
+    epd.init()
     
-    print("Looping beeps...")
-    while True:
-        # Beep 1: Low pitch
-        beep(freq=800, duration_ms=200)
-        time.sleep_ms(300)
-        
-        # Beep 2: High pitch
-        beep(freq=1200, duration_ms=200)
-        time.sleep_ms(800)
+    # 1. Clear Screen (White)
+    print("Filling White...")
+    buf = bytearray([0xFF] * (128 * 296 // 8))
+    
+    # Set X/Y pointers to 0 before writing
+    epd._command(0x4E, bytearray([0x00]))
+    epd._command(0x4F, bytearray([0x00, 0x00]))
+    epd.set_frame_memory(buf)
+    epd.display_frame()
+    time.sleep(2)
+
+    # 2. Draw Pattern
+    print("Drawing Pattern...")
+    fb = framebuf.FrameBuffer(buf, 128, 296, framebuf.MONO_HLSB)
+    fb.fill(0xFF) # Clear buffer
+    
+    # Large X
+    fb.line(0, 0, 127, 295, 0x00)
+    fb.line(127, 0, 0, 295, 0x00)
+    
+    # Text
+    fb.text("TEST", 50, 140, 0x00)
+    
+    # Reset pointers and write
+    epd._command(0x4E, bytearray([0x00]))
+    epd._command(0x4F, bytearray([0x00, 0x00]))
+    epd.set_frame_memory(buf)
+    epd.display_frame()
+    
+    print("Done.")
+    epd.sleep()
 
 if __name__ == "__main__":
     main()
