@@ -6,6 +6,7 @@ import network
 import ujson
 import usocket
 import ntptime
+import neopixel
 
 # --- USER CONFIGURATION ---
 WIFI_SSID = "YOUR_WIFI_NAME"
@@ -20,6 +21,16 @@ dc = machine.Pin(4, machine.Pin.OUT)
 busy = machine.Pin(5, machine.Pin.IN)
 
 epd = il3820.EPD(spi, cs, dc, busy, rst=None)
+# --- LED Setup ---
+# Using GPIO 0 (D3) for the LED module
+led_pin = machine.Pin(0, machine.Pin.OUT)
+pixels = neopixel.NeoPixel(led_pin, 4)
+
+def set_led(r, g, b):
+    """Helper to set all 4 LEDs to one color"""
+    for i in range(4):
+        pixels[i] = (r, g, b)
+    pixels.write()
 
 # Global Weather Cache
 weather_cache = {"temp": "--", "desc": "--", "last_update": 0}
@@ -131,17 +142,28 @@ def draw_screen(time_str, date_str):
 
 def main():
     print("Init...")
+    set_led(10, 0, 0) # Red: Initializing
+    
     epd.init()
     
+    set_led(10, 10, 0) # Yellow: Connecting to WiFi
     if connect_wifi():
+        set_led(0, 0, 10) # Blue: Syncing Time/Weather
         sync_time()
         update_weather()
+        set_led(0, 10, 0) # Green: Success!
+    else:
+        set_led(20, 0, 0) # Bright Red: WiFi Failed
     
     # Initial Draw
     time_str, date_str, _ = get_local_time()
     draw_screen(time_str, date_str)
     
     last_time_str = time_str
+    
+    # Turn off LEDs to save power after initial setup
+    time.sleep(2)
+    set_led(0, 0, 0) 
 
     while True:
         # Check time every 5 seconds
