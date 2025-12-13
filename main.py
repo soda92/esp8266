@@ -124,11 +124,11 @@ def http_get(url):
         s.connect(addr)
 
         request = f"GET /{path} HTTP/1.0\r\nHost: {host}\r\nUser-Agent: ESP8266\r\n\r\n"
-        s.write(request.encode())
+        s.write(request.encode())  # type: ignore
 
         response = b""
         while True:
-            data = s.read(1024)
+            data = s.read(1024)  # type: ignore
             if not data:
                 break
             response += data

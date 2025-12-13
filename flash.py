@@ -92,8 +92,8 @@ def main():
         # 4. Monitor Output
         print("--- Serial Output (Ctrl+C to exit) ---")
         while True:
-            if pyb.serial.inWaiting() > 0:
-                data = pyb.serial.read(pyb.serial.inWaiting())
+            if pyb.serial.inWaiting() > 0:  # type: ignore
+                data = pyb.serial.read(pyb.serial.inWaiting())  # type: ignore
                 sys.stdout.write(data.decode("utf-8", errors="replace"))
                 sys.stdout.flush()
             time.sleep(0.1)

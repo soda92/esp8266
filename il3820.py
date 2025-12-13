@@ -43,11 +43,11 @@ class EPD:
         # Hardware reset
         if self.rst:
             self.rst(1)
-            time.sleep_ms(200)
+            time.sleep_ms(200)  # type: ignore
             self.rst(0)
-            time.sleep_ms(200)
+            time.sleep_ms(200)  # type: ignore
             self.rst(1)
-            time.sleep_ms(200)
+            time.sleep_ms(200)  # type: ignore
 
         self._command(0x12)  # SWRESET
         self.wait_until_idle()
@@ -74,9 +74,9 @@ class EPD:
     def wait_until_idle(self):
         if self.busy:
             while self.busy.value() == 1:
-                time.sleep_ms(50)
+                time.sleep_ms(50)  # type: ignore
         else:
-            time.sleep_ms(2000)
+            time.sleep_ms(2000)  # type: ignore
 
     def set_frame_memory(self, image):
         self._command(0x24)  # WRITE_RAM
