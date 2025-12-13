@@ -7,7 +7,6 @@ import ujson
 import usocket
 import ntptime
 import neopixel
-import math
 
 # --- USER CONFIGURATION ---
 WIFI_SSID = "YOUR_WIFI_NAME"

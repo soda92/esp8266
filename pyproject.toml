@@ -8,3 +8,8 @@ dependencies = [
     "adafruit-ampy>=1.1.0",
     "keyring>=25.7.0",
 ]
+
+[dependency-groups]
+dev = [
+    "micropython-esp8266-stubs>=1.26.0.post1",
+]

@@ -120,11 +120,19 @@ dependencies = [
     { name = "keyring" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "micropython-esp8266-stubs" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "adafruit-ampy", specifier = ">=1.1.0" },
     { name = "keyring", specifier = ">=25.7.0" },
 ]
+
+[package.metadata.requires-dev]
+dev = [{ name = "micropython-esp8266-stubs", specifier = ">=1.26.0.post1" }]
 
 [[package]]
 name = "jaraco-classes"
@@ -183,6 +191,26 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", hash = "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b", size = 63516, upload-time = "2025-11-16T16:26:09.482Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl", hash = "sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f", size = 39160, upload-time = "2025-11-16T16:26:08.402Z" },
+]
+
+[[package]]
+name = "micropython-esp8266-stubs"
+version = "1.26.0.post1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "micropython-stdlib-stubs" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/d0/63f6f2440a405459fcffcf71d274ff1a19ea13231c469e7cb088196d72ba/micropython_esp8266_stubs-1.26.0.post1.tar.gz", hash = "sha256:1a8b63b9d68ed318c96549d479824e5b88304ebf6a68b84e81dc96ea992293b5", size = 67246, upload-time = "2025-09-01T21:42:39.627Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f4/03/48ce059f49f019837ed3f10b22baae4e93daf37881e9dd71a1906a4b5d44/micropython_esp8266_stubs-1.26.0.post1-py2.py3-none-any.whl", hash = "sha256:abca2896a6aed9e8374e36db3fc20c7e6fc743d0e3b97935d7b7b7d86d63c06c", size = 88907, upload-time = "2025-09-01T21:42:38.267Z" },
+]
+
+[[package]]
+name = "micropython-stdlib-stubs"
+version = "1.26.0.post3"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4f/2e/38a03713acf949c571e54de7c64fb48a519521c4ff0c1645d5213316637e/micropython_stdlib_stubs-1.26.0.post3-py3-none-any.whl", hash = "sha256:98a35a1faffeca605a0d38988dd0d98a117c32193db758436c87a08ca278339d", size = 147944, upload-time = "2025-09-01T21:07:57.11Z" },
 ]
 
 [[package]]
