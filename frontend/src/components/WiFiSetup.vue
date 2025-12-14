@@ -5,11 +5,26 @@ const wifiNetworks = ref([])
 const scanning = ref(false)
 const wifiForm = reactive({ ssid: '', password: '' })
 const uploadingKey = ref(false)
+const serialInput = ref('')
+const resetting = ref(false)
+
+const authFetch = async (url, options = {}) => {
+  const token = localStorage.getItem('token')
+  const headers = { ...options.headers }
+  if (token) headers['X-Token'] = token
+  
+  const res = await fetch(url, { ...options, headers })
+  if (res.status === 401) {
+    location.reload() // Force re-login
+    throw new Error('Unauthorized')
+  }
+  return res
+}
 
 const scanWifi = async () => {
   scanning.value = true
   try {
-    const res = await fetch('/api/scan')
+    const res = await authFetch('/api/scan')
     wifiNetworks.value = await res.json()
   } catch(e) {
     alert("Scan failed")
@@ -21,7 +36,7 @@ const scanWifi = async () => {
 const saveWifi = async () => {
   if(!wifiForm.ssid) return
   try {
-    await fetch('/api/wifi', {
+    await authFetch('/api/wifi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(wifiForm)
@@ -39,7 +54,7 @@ const uploadKey = async (event) => {
   uploadingKey.value = true
   try {
     const buffer = await file.arrayBuffer()
-    const res = await fetch('/api/ota/key', {
+    const res = await authFetch('/api/ota/key', {
       method: 'POST',
       body: buffer
     })
@@ -50,6 +65,32 @@ const uploadKey = async (event) => {
   } finally {
     uploadingKey.value = false
     event.target.value = ''
+  }
+}
+
+const factoryReset = async () => {
+  if (!confirm("Are you sure? This will wipe settings.")) return
+  
+  resetting.value = true
+  try {
+    const res = await authFetch('/api/auth/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ serial: serialInput.value })
+    })
+    
+    if (res.ok) {
+      alert("Reset Successful! Device rebooting...")
+      localStorage.removeItem('token')
+      location.reload()
+    } else {
+      const data = await res.json()
+      alert("Reset Failed: " + (data.error || "Unknown"))
+    }
+  } catch (e) {
+    alert("Error")
+  } finally {
+    resetting.value = false
   }
 }
 </script>
@@ -83,6 +124,15 @@ const uploadKey = async (event) => {
       </label>
     </div>
   </div>
+  
+  <div class="card danger-zone">
+    <h2>⚠️ Factory Reset</h2>
+    <p class="hint">Enter Serial Number (Found on device/console) to reset password.</p>
+    <input v-model="serialInput" placeholder="Serial Number (e.g. SN-XXXX)" class="serial-input">
+    <button class="danger full-width" @click="factoryReset" :disabled="resetting">
+        {{ resetting ? 'Resetting...' : 'Factory Reset' }}
+    </button>
+  </div>
 </template>
 
 <style scoped>
@@ -95,4 +145,9 @@ const uploadKey = async (event) => {
 .form input { margin-bottom: 10px; }
 .upload-area { border: 2px dashed #e1e4e8; border-radius: 12px; padding: 20px; text-align: center; }
 .hint { font-size: 0.9rem; color: #666; margin-bottom: 15px; }
+.danger-zone { border: 1px solid #ffcccc; background: #fff5f5; }
+.danger-zone h2 { color: #cc0000; }
+button.danger { background: #dc3545; color: white; }
+button.danger:hover { background: #bd2130; }
+.serial-input { border-color: #ffcccc; }
 </style>

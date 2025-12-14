@@ -7,7 +7,7 @@ import machine
 import auth_manager
 import ubinascii
 import logger
-
+import time
 
 # Increase Body Limit for OTA
 Request.max_content_length = 1024 * 1024
@@ -94,10 +94,17 @@ async def api_ota_key(request):
                 try: key_data = ubinascii.unhexlify(key_data)
                 except: pass
         
-        with open("secret.key", "w") as f:
+        # Ensure keys dir exists
+        try: os.mkdir('/keys')
+        except: pass
+        
+        # Generate filename using time to be unique
+        fname = f"/keys/user_{time.time()}.key"
+        
+        with open(fname, "w") as f:
             f.write(key_data.hex()) 
             
-        return {'status': 'key updated'}
+        return {'status': 'key added', 'file': fname}
     except Exception as e:
         return {'error': str(e)}, 500
 

@@ -28,10 +28,20 @@ def prepare_build():
     subprocess.run(["npm", "run", "build"], cwd="frontend", check=True)
     
     # 2. Copy Source Files
-    sources = glob.glob("*.py") + glob.glob("*.json") + ["secret.key", "serial.txt"]
+    sources = glob.glob("*.py") + glob.glob("*.json")
+    if os.path.exists("serial.txt"):
+        sources.append("serial.txt")
+        
     for src in sources:
         if src == os.path.basename(__file__): continue
         shutil.copy(src, os.path.join(BUILD_DIR, src))
+        
+    # 2b. Setup Keys
+    if os.path.exists("secret.key"):
+        keys_dir = os.path.join(BUILD_DIR, "keys")
+        if not os.path.exists(keys_dir):
+            os.makedirs(keys_dir)
+        shutil.copy("secret.key", os.path.join(keys_dir, "factory.key"))
         
     # 3. Copy Microdot Lib
     microdot_path = ".venv/lib/python3.13/site-packages/microdot/microdot.py"
