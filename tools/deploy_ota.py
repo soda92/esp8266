@@ -5,9 +5,13 @@ import os
 import subprocess
 import shutil
 import glob
+import keyring
+import getpass
 
 ESP_IP = "192.168.0.110" 
 BUILD_DIR = "build"
+SERVICE_ID = "esp32_ota"
+USERNAME = "admin"
 
 def build_project():
     print("Building Project...")
@@ -39,29 +43,58 @@ def build_project():
     print("  Compiling Fonts...")
     subprocess.run([sys.executable, "compile_font.py"], cwd=BUILD_DIR, check=True)
 
+def get_token(ip):
+    password = keyring.get_password(SERVICE_ID, USERNAME)
+    
+    while True:
+        if not password:
+            password = getpass.getpass(f"Enter Password for {ip}: ")
+            
+        try:
+            r = requests.post(f"http://{ip}/api/auth/login", json={"password": password})
+            if r.status_code == 200:
+                print("Login Successful.")
+                # Save correct password
+                keyring.set_password(SERVICE_ID, USERNAME, password)
+                return r.json().get("token")
+            elif r.status_code == 401:
+                print("Invalid Password.")
+                password = None # Ask again
+            else:
+                print(f"Login Error: {r.status_code} - {r.text}")
+                return None
+        except requests.exceptions.ConnectionError:
+            print(f"Could not connect to {ip}")
+            return None
+
 def deploy(ip):
-    # 0. Build
+    # 0. Auth
+    token = get_token(ip)
+    if not token:
+        return
+
+    # 1. Build
     build_project()
 
-    # 1. Sign Package
+    # 2. Sign Package
     print("Signing Package...")
     sign.sign_package()
     
     zip_path = "dist/update.zip"
     sig_path = "dist/update.sig"
     
-    # 2. Read Signature
     with open(sig_path, "rb") as f:
         sig_bytes = f.read()
     
-    # 3. Read Zip
     with open(zip_path, "rb") as f:
         zip_data = f.read()
         
     print(f"Uploading {len(zip_data)} bytes to http://{ip}/api/ota...")
     
     headers = {
-        "X-Signature": sig_bytes.hex()
+        "X-Signature": sig_bytes.hex(),
+        "X-Token": token,
+        "Content-Type": "application/octet-stream"
     }
     
     try:
