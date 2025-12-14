@@ -1,10 +1,14 @@
-from microdot import Microdot, send_file
+from microdot import Microdot, send_file, Request
 import ujson
 import os
 import wifi_manager
 import led_manager
 import machine
 import time
+
+# Increase Body Limit for OTA
+Request.max_content_length = 1024 * 1024
+Request.max_body_length = 1024 * 1024
 
 app = Microdot()
 
@@ -94,10 +98,6 @@ async def api_wifi(request):
         pw = data.get("password")
         if ssid:
             wifi_manager.save_config(ssid, pw)
-            # Schedule reboot
-            # We can't reboot immediately or the response won't send.
-            # Microdot doesn't have background tasks built-in easily without asyncio loop access.
-            # But we are in async handler.
             import uasyncio
             async def reboot_later():
                 await uasyncio.sleep(1)
@@ -108,6 +108,32 @@ async def api_wifi(request):
             return {'error': 'missing ssid'}, 400
     except Exception as e:
         return {'error': str(e)}, 400
+
+@app.route('/api/ota', methods=['POST'])
+async def api_ota(request):
+    import ota_manager
+    import ubinascii
+    
+    try:
+        # 1. Get Signature
+        sig_hex = request.headers.get('X-Signature')
+        if not sig_hex:
+            return {'error': 'missing signature'}, 400
+            
+        signature = ubinascii.unhexlify(sig_hex)
+        
+        # 2. Save Zip
+        zip_data = request.body
+        
+        # 3. Verify & Install
+        if ota_manager.verify_and_install(zip_data, signature):
+            return {'status': 'updating'}
+        else:
+            return {'error': 'invalid signature'}, 403
+            
+    except Exception as e:
+        print(f"OTA Error: {e}")
+        return {'error': str(e)}, 500
 
 # --- Static File Serving ---
 

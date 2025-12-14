@@ -13,12 +13,17 @@ def prepare_build():
         shutil.rmtree(BUILD_DIR)
     os.makedirs(BUILD_DIR)
     
+    # 0. Generate Keys if needed
+    if not os.path.exists("secret.key"):
+        print("Generating Keys...")
+        subprocess.run([sys.executable, "tools/keygen.py"], check=True)
+    
     # 1. Build Frontend
     print("Building Frontend...")
     subprocess.run(["npm", "run", "build"], cwd="frontend", check=True)
     
     # 2. Copy Source Files
-    sources = glob.glob("*.py") + glob.glob("*.json")
+    sources = glob.glob("*.py") + glob.glob("*.json") + ["secret.key"]
     for src in sources:
         if src == os.path.basename(__file__): continue
         shutil.copy(src, os.path.join(BUILD_DIR, src))
