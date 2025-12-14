@@ -8,7 +8,7 @@ from ampy.pyboard import Pyboard
 from ampy.files import Files
 
 # Configuration
-PORT = "/dev/esp8266"
+PORT = "/dev/esp32"
 BAUD = 115200
 BUILD_DIR = "build"
 
@@ -105,7 +105,16 @@ def main():
     try:
         # Collect files to upload
         files_to_upload = glob.glob(os.path.join(BUILD_DIR, "*"))
-        files_to_upload = [f for f in files_to_upload if os.path.basename(f) != "compile_font.py"]
+        # Add font binary explicitly if glob missed it or just to be sure
+        if os.path.exists(os.path.join(BUILD_DIR, "font_data.bin")):
+            if os.path.join(BUILD_DIR, "font_data.bin") not in files_to_upload:
+                files_to_upload.append(os.path.join(BUILD_DIR, "font_data.bin"))
+                
+        # Exclude scripts that shouldn't be on the board
+        excluded_files = [os.path.basename(__file__), "compile_font.py", "time_manager.py"]
+        for f in excluded_files:
+            if f in files_to_upload:
+                files_to_upload.remove(f)
 
         # 3. Smart Clean
         clean_board(pyb, files_to_upload)

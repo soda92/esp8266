@@ -1,94 +1,97 @@
 import machine
 import uasyncio
+import gc
 import il3820
 import wifi_manager
-import time_manager
 import weather_api
 import display_ui
 import led_manager
 import web_server
+import time
+import config
 
-# --- Hardware Setup ---
-spi = machine.SPI(1, baudrate=2000000, polarity=0, phase=0)
-cs = machine.Pin(15, machine.Pin.OUT)
-dc = machine.Pin(4, machine.Pin.OUT)
-busy = machine.Pin(5, machine.Pin.IN)
+# --- Hardware Setup (ESP32-S3 Top-Left) ---
+# SCK=12, MOSI=11, CS=10, DC=14, BUSY=13
+spi = machine.SPI(1, baudrate=2000000, polarity=0, phase=0, sck=machine.Pin(12), mosi=machine.Pin(11))
+cs = machine.Pin(10, machine.Pin.OUT)
+dc = machine.Pin(14, machine.Pin.OUT)
+busy = machine.Pin(13, machine.Pin.IN)
 
 epd = il3820.EPD(spi, cs, dc, busy, rst=None)
 
+def get_local_time():
+    now = time.time() + config.UTC_OFFSET
+    tm = time.localtime(now)
+    # Return (HH:MM, YYYY-MM-DD, seconds)
+    return (
+        "{:02d}:{:02d}".format(tm[3], tm[4]),
+        "{}-{:02d}-{:02d}".format(tm[0], tm[1], tm[2]),
+        tm[5],
+    )
+
 async def heartbeat_task():
-    """Flashes LED every 5 seconds"""
     while True:
         led_manager.led_heartbeat()
         await uasyncio.sleep(5)
 
 async def weather_task():
-    """Updates weather every 15 minutes"""
     while True:
-        # Check cache inside weather_api to respect 15m limit, 
-        # but here we just sleep to be safe.
-        # Initial update happens in main setup.
-        await uasyncio.sleep(900) # 15 mins
-        
-        print("Updating Weather (Async)...")
+        await uasyncio.sleep(900) 
         led_manager.led_web_request()
-        # weather_api.update() is blocking (socket). 
-        # In a perfect world we'd make it async, but for now 1s blocking every 15m is fine.
         weather_api.update()
         led_manager.led_off()
+        gc.collect()
 
 async def ui_task():
-    """Updates the screen when Time changes OR Message changes"""
     last_time_str = ""
     last_msg_str = ""
     
     while True:
-        t_str, d_str, _ = time_manager.get_local_time()
+        t_str, d_str, _ = get_local_time()
         msg_str = web_server.custom_message
         
-        # Check for changes
         time_changed = (t_str != last_time_str)
         msg_changed = (msg_str != last_msg_str)
         
         if time_changed or msg_changed:
-            if time_changed:
-                led_manager.led_minute_update()
-            if msg_changed:
-                led_manager.led_web_request()
+            if time_changed: led_manager.led_minute_update()
+            if msg_changed: led_manager.led_web_request()
             
             display_ui.draw_screen(epd, t_str, d_str, msg_str)
             led_manager.led_off()
             
             last_time_str = t_str
             last_msg_str = msg_str
+            gc.collect()
         
-        # Check every 100ms for fast UI response
         await uasyncio.sleep(0.1)
 
 async def main_loop():
     print("Init System...")
     epd.init()
 
-    # Initial Connection (Blocking is fine here)
+    # Initial Connection
     if wifi_manager.connect():
         led_manager.led_syncing()
-        time_manager.sync()
+        # time_manager.sync() -> merged:
+        import ntptime
+        try: ntptime.settime()
+        except: pass
+        
         weather_api.update()
         led_manager.led_off()
     
     # Start Web Server
-    # start_server() creates a task automatically
     await web_server.start_server()
     
-    # Create other tasks
     uasyncio.create_task(heartbeat_task())
     uasyncio.create_task(weather_task())
     uasyncio.create_task(ui_task())
     
-    print("System Running...")
-    # Keep main alive
+    print(f"System Running. Free RAM: {gc.mem_free()}")
     while True:
         await uasyncio.sleep(3600)
+        gc.collect()
 
 def main():
     try:

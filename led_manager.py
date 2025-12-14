@@ -3,7 +3,7 @@ import neopixel
 import time
 
 # --- LED Configuration ---
-PIN_LEDS = 0
+PIN_LEDS = 9
 NUM_LEDS = 4
 
 # Modes

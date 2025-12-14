@@ -1,0 +1,2 @@
+# Rule for ESP32-S3 (CH343/CH9102) to create a symlink /dev/esp32
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d3", SYMLINK+="esp32", MODE="0666"
