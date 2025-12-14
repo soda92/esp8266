@@ -116,7 +116,7 @@ const factoryReset = async () => {
 
   <div class="card">
     <h2>🔐 OTA Security</h2>
-    <p class="hint">Upload a new <code>secret.key</code> to enable custom firmware updates.</p>
+    <p class="hint">Upload a <code>secret.key</code> to add a trusted signer. Existing keys are preserved.</p>
     <div class="upload-area">
       <label class="file-label">
         <input type="file" @change="uploadKey" :disabled="uploadingKey">
@@ -127,7 +127,7 @@ const factoryReset = async () => {
   
   <div class="card danger-zone">
     <h2>⚠️ Factory Reset</h2>
-    <p class="hint">Enter Serial Number (Found on device/console) to reset password.</p>
+    <p class="hint">Wipes WiFi config and Admin password. Device will restart in AP Setup Mode.</p>
     <input v-model="serialInput" placeholder="Serial Number (e.g. SN-XXXX)" class="serial-input">
     <button class="danger full-width" @click="factoryReset" :disabled="resetting">
         {{ resetting ? 'Resetting...' : 'Factory Reset' }}
