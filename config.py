@@ -1,6 +1,5 @@
 # Config file
-WIFI_SSID = "YOUR_WIFI_NAME"
-WIFI_PASS = "YOUR_WIFI_PASSWORD"
+# WiFi credentials are now stored in wifi.json (managed by Web UI)
 
 # Offset for Beijing (UTC+8)
 UTC_OFFSET = 28800

@@ -2,6 +2,8 @@ import uasyncio
 import os
 import ujson
 import led_manager
+import wifi_manager
+import machine
 
 # Global State
 custom_message = ""
@@ -35,8 +37,6 @@ async def handle_client(reader, writer):
             line = await reader.readline()
             if not line or line == b'\r\n' or line == b'\n':
                 break
-            
-            # Look for Content-Length
             line_str = line.decode('utf-8').lower()
             if line_str.startswith("content-length:"):
                 try:
@@ -44,17 +44,39 @@ async def handle_client(reader, writer):
                 except ValueError:
                     pass
         
-        # 3. Read Body (if any)
+        # 3. Read Body
         body = b""
         if content_length > 0:
             body = await reader.readexactly(content_length)
         
+        # --- API: WiFi Setup ---
+        if path.startswith("/api/wifi"):
+            if method == "POST":
+                try:
+                    data = ujson.loads(body.decode('utf-8'))
+                    ssid = data.get("ssid")
+                    pw = data.get("password")
+                    if ssid:
+                        wifi_manager.save_config(ssid, pw)
+                        await send_response(writer, "200 OK", "application/json", '{"status": "saved", "action": "rebooting"}'.encode())
+                        print("Rebooting...")
+                        await uasyncio.sleep(1)
+                        machine.reset()
+                    else:
+                        await send_response(writer, "400 Bad Request", "application/json", '{"error": "missing ssid"}'.encode())
+                except Exception as e:
+                    print(f"WiFi Setup Error: {e}")
+                    await send_response(writer, "400 Bad Request", "application/json", '{"error": "error"}'.encode())
+            
+            writer.close()
+            await writer.wait_closed()
+            return
+
         # --- API: Get/Set Message ---
         if path.startswith("/api/message"):
             if method == "POST":
                 try:
                     data = ujson.loads(body.decode('utf-8'))
-                    # If empty string is sent, it clears the message
                     custom_message = data.get("message", "")
                     print(f"New Message: '{custom_message}'")
                     await send_response(writer, "200 OK", "application/json", '{"status": "ok"}'.encode())
@@ -62,7 +84,6 @@ async def handle_client(reader, writer):
                     print(f"JSON Error: {e}")
                     await send_response(writer, "400 Bad Request", "application/json", '{"error": "invalid json"}'.encode())
             else:
-                # GET
                 resp = ujson.dumps({"message": custom_message})
                 await send_response(writer, "200 OK", "application/json", resp.encode())
             
@@ -75,33 +96,28 @@ async def handle_client(reader, writer):
             if method == "POST":
                 try:
                     data = ujson.loads(body.decode('utf-8'))
-                    
                     if "led" in data:
                         led_manager.toggle(data["led"])
-                    
                     if "brightness" in data:
                         led_manager.set_brightness(data["brightness"])
-                        
                     if "mode" in data:
-                        # 0=Auto, 1=Manual
-                        m = int(data["mode"])
-                        led_manager.set_mode(m)
-                        
+                        led_manager.set_mode(int(data["mode"]))
                     if "pixel" in data:
-                        # {"index": 0, "r": 255, "g": 0, "b": 0}
                         p = data["pixel"]
                         led_manager.set_manual_pixel(p.get("index", 0), p.get("r", 0), p.get("g", 0), p.get("b", 0))
 
                     await send_response(writer, "200 OK", "application/json", '{"status": "ok"}'.encode())
-                except Exception as e:
-                    print(f"Settings Error: {e}")
+                except:
                     await send_response(writer, "400 Bad Request", "application/json", '{"error": "invalid json"}'.encode())
             else:
+                s = os.statvfs('/')
                 resp = ujson.dumps({
                     "led": led_manager.ENABLED,
                     "brightness": led_manager.GLOBAL_BRIGHTNESS,
                     "mode": led_manager.CURRENT_MODE,
-                    "colors": led_manager.MANUAL_COLORS
+                    "colors": led_manager.MANUAL_COLORS,
+                    "storage_free": s[0] * s[3],
+                    "storage_total": s[0] * s[2]
                 })
                 await send_response(writer, "200 OK", "application/json", resp.encode())
                 
@@ -111,7 +127,14 @@ async def handle_client(reader, writer):
 
         # --- Static File Serving ---
         if path == "/" or path == "/index.html":
-            file_path = "index.html"
+            # If in AP Mode, maybe redirect to setup? Or serve setup.html by default?
+            # Let's check mode
+            if wifi_manager.is_ap_mode:
+                file_path = "setup.html"
+            else:
+                file_path = "index.html"
+        elif path == "/setup":
+            file_path = "setup.html"
         else:
             file_path = path.lstrip("/")
             if ".." in file_path:
