@@ -78,14 +78,19 @@ def main():
 
     try:
         # Get all .py files
-        py_files = glob.glob("*.py")
+        files_to_upload = glob.glob("*.py")
         
-        # Exclude this script
-        current_script = os.path.basename(__file__)
-        if current_script in py_files:
-            py_files.remove(current_script)
+        # Add index.html if it exists
+        if os.path.exists("index.html"):
+            files_to_upload.append("index.html")
+        
+        # Exclude scripts that shouldn't be on the board
+        excluded_files = [os.path.basename(__file__), "compile_font.py"]
+        for f in excluded_files:
+            if f in files_to_upload:
+                files_to_upload.remove(f)
 
-        for filename in py_files:
+        for filename in files_to_upload:
             with open(filename, 'r') as f:
                 content = f.read()
             

@@ -36,13 +36,36 @@
         <div v-if="loading">Loading...</div>
         
         <div v-else>
-            <!-- LED Toggle -->
+            <!-- LED Master Toggle -->
             <div class="toggle-container">
-                <span class="toggle-label">LED Status:</span>
+                <span class="toggle-label">Master Switch:</span>
                 <label class="switch">
                     <input type="checkbox" v-model="ledEnabled" @change="toggleLed">
                     <span class="slider"></span>
                 </label>
+            </div>
+
+            <!-- LED Controls -->
+            <div v-if="ledEnabled" style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="margin-bottom: 10px;">
+                    <label>Brightness: {{ Math.round(brightness * 100) }}%</label>
+                    <input type="range" v-model.number="brightness" min="0" max="1" step="0.05" @change="updateBrightness">
+                </div>
+
+                <div style="margin-bottom: 10px;">
+                    <label>Mode:</label>
+                    <select v-model.number="ledMode" @change="updateMode" style="padding: 5px; border-radius: 4px;">
+                        <option :value="0">Auto (Status)</option>
+                        <option :value="1">Manual (Custom)</option>
+                    </select>
+                </div>
+
+                <div v-if="ledMode === 1" style="display: flex; justify-content: space-around; margin-top: 10px;">
+                    <div v-for="(color, idx) in ledColors" :key="idx" style="text-align: center;">
+                        <label style="display: block; font-size: 12px; margin-bottom: 5px;">LED {{ idx+1 }}</label>
+                        <input type="color" :value="rgbToHex(color)" @input="updatePixel(idx, $event.target.value)">
+                    </div>
+                </div>
             </div>
 
             <p>Current Message:</p>
@@ -67,6 +90,9 @@
                     currentMessage: '',
                     newMessage: '',
                     ledEnabled: true,
+                    brightness: 0.1,
+                    ledMode: 0, // 0=Auto, 1=Manual
+                    ledColors: [[0,0,0], [0,0,0], [0,0,0], [0,0,0]],
                     loading: true,
                     sending: false,
                     lastSync: 'Never'
@@ -74,13 +100,11 @@
             },
             mounted() {
                 this.fetchData()
-                // Poll every 5 seconds
                 setInterval(this.fetchData, 5000)
             },
             methods: {
                 async fetchData() {
                     try {
-                        // Parallel fetch
                         const [msgRes, ledRes] = await Promise.all([
                             fetch('/api/message'),
                             fetch('/api/settings')
@@ -90,13 +114,55 @@
                         const ledData = await ledRes.json()
                         
                         this.currentMessage = msgData.message
+                        
                         this.ledEnabled = ledData.led
+                        this.brightness = ledData.brightness
+                        this.ledMode = ledData.mode
+                        this.ledColors = ledData.colors || [[0,0,0],[0,0,0],[0,0,0],[0,0,0]]
                         
                         this.loading = false
                         this.lastSync = new Date().toLocaleTimeString()
                     } catch (e) {
                         console.error("Fetch error", e)
                     }
+                },
+                rgbToHex(rgb) {
+                    const [r, g, b] = rgb
+                    return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+                },
+                hexToRgb(hex) {
+                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                    return result ? {
+                        r: parseInt(result[1], 16),
+                        g: parseInt(result[2], 16),
+                        b: parseInt(result[3], 16)
+                    } : null;
+                },
+                async updatePixel(idx, hex) {
+                    const rgb = this.hexToRgb(hex)
+                    if (!rgb) return
+                    
+                    // Optimistic update
+                    this.ledColors[idx] = [rgb.r, rgb.g, rgb.b]
+                    
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            pixel: { index: idx, r: rgb.r, g: rgb.g, b: rgb.b } 
+                        })
+                    })
+                },
+                async updateBrightness() {
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({ brightness: this.brightness })
+                    })
+                },
+                async updateMode() {
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({ mode: this.ledMode })
+                    })
                 },
                 async updateMessage() {
                     if (!this.newMessage) return
@@ -123,14 +189,24 @@
                             body: JSON.stringify({ led: this.ledEnabled })
                         })
                     } catch (e) {
-                        alert("Failed to toggle LED")
-                        // Revert switch on error
                         this.ledEnabled = !this.ledEnabled
                     }
                 },
                 async clearMessage() {
-                    this.newMessage = ''
-                    await this.updateMessage()
+                    this.sending = true
+                    try {
+                        await fetch('/api/message', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: "" })
+                        })
+                        this.currentMessage = ""
+                        this.newMessage = ""
+                    } catch (e) {
+                        alert("Failed to clear")
+                    } finally {
+                        this.sending = false
+                    }
                 }
             }
         }).mount('#app')

@@ -94,7 +94,28 @@ def generate_font_file(chars):
         f.write("}\n\n")
         
         # Add the draw functions
-        f.write("\ndef draw_char(fb, char, x, y):\n    if char not in BITMAPS: return\n    data = BITMAPS[char]\n    char_fb = framebuf.FrameBuffer(data, 16, 16, framebuf.MONO_HLSB)\n    fb.blit(char_fb, x, y)\n\ndef draw_text(fb, text, x, y):\n    cursor = x\n    for char in text:\n        if char in BITMAPS:\n            draw_char(fb, char, cursor, y)\n            cursor += 16\n        else:\n            cursor += 8\n")
+        f.write("""def draw_char(fb, char, x, y):
+    if char not in BITMAPS: return
+    data = BITMAPS[char]
+    char_fb = framebuf.FrameBuffer(data, 16, 16, framebuf.MONO_HLSB)
+    fb.blit(char_fb, x, y)
+
+def draw_text(fb, text, x, y):
+    cursor = x
+    for char in text:
+        if char in BITMAPS:
+            draw_char(fb, char, cursor, y)
+            cursor += 16
+        elif 32 <= ord(char) <= 126:
+            # ASCII Fallback (Built-in 8x8 font)
+            # Center it vertically (16-8)/2 = 4px offset
+            fb.text(char, cursor, y + 4, 0)
+            cursor += 8
+        else:
+            # Unknown character -> ?
+            fb.text("", cursor, y + 4, 0)
+            cursor += 8
+""")
 
 if __name__ == "__main__":
     chars = get_chinese_chars()

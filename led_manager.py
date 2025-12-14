@@ -3,13 +3,18 @@ import neopixel
 import time
 
 # --- LED Configuration ---
-# GPIO 0 is Pin D3 on NodeMCU
 PIN_LEDS = 0
 NUM_LEDS = 4
 
-# Global Brightness Control (0.0 to 1.0)
+# Modes
+MODE_AUTO = 0   # System controls LEDs (Weather, Heartbeat)
+MODE_MANUAL = 1 # User controls LEDs via Web
+
+# State
 GLOBAL_BRIGHTNESS = 0.1
 ENABLED = True
+CURRENT_MODE = MODE_AUTO
+MANUAL_COLORS = [(0,0,0)] * NUM_LEDS
 
 led_pin = machine.Pin(PIN_LEDS, machine.Pin.OUT)
 pixels = neopixel.NeoPixel(led_pin, NUM_LEDS)
@@ -18,82 +23,104 @@ def toggle(state):
     global ENABLED
     ENABLED = state
     if not ENABLED:
-        set_led(0, 0, 0) # Force off immediately
+        pixels.fill((0,0,0))
+        pixels.write()
+    else:
+        # Restore state
+        refresh()
 
-def set_led(r, g, b):
-    """
-    Set all LEDs with global brightness scaling.
-    Inputs (r, g, b) should be 0-255.
-    """
-    if not ENABLED:
-        # Override to OFF, but do not change logic elsewhere
-        r, g, b = 0, 0, 0
-    
-    # Apply global brightness scaling
+def set_mode(mode):
+    global CURRENT_MODE
+    CURRENT_MODE = mode
+    refresh()
+
+def set_brightness(val):
+    global GLOBAL_BRIGHTNESS
+    GLOBAL_BRIGHTNESS = max(0.0, min(1.0, float(val)))
+    refresh()
+
+def apply_color(r, g, b):
+    """Helper to scale color by brightness"""
     r = int(r * GLOBAL_BRIGHTNESS)
     g = int(g * GLOBAL_BRIGHTNESS)
     b = int(b * GLOBAL_BRIGHTNESS)
+    return (r, g, b)
+
+def refresh():
+    """Re-applies current state to pixels"""
+    if not ENABLED:
+        pixels.fill((0,0,0))
+        pixels.write()
+        return
+
+    if CURRENT_MODE == MODE_MANUAL:
+        for i in range(NUM_LEDS):
+            r, g, b = MANUAL_COLORS[i]
+            pixels[i] = apply_color(r, g, b)
+        pixels.write()
+    # If Auto, we rely on the specific functions calling set_led/pixels.write
+
+def set_manual_pixel(i, r, g, b):
+    """Sets a specific pixel in manual mode"""
+    if 0 <= i < NUM_LEDS:
+        MANUAL_COLORS[i] = (r, g, b)
+    if CURRENT_MODE == MODE_MANUAL:
+        refresh()
+
+def set_led(r, g, b):
+    """Sets ALL LEDs (Used by Auto Mode)"""
+    if not ENABLED: return
     
-    # Clamp to ensure valid range
-    r = max(0, min(255, r))
-    g = max(0, min(255, g))
-    b = max(0, min(255, b))
-    
+    c = apply_color(r, g, b)
     for i in range(NUM_LEDS):
-        pixels[i] = (r, g, b)
+        pixels[i] = c
     pixels.write()
 
 def led_off():
-    set_led(0, 0, 0)
+    if CURRENT_MODE == MODE_AUTO:
+        set_led(0, 0, 0)
 
 def breathe(r, g, b, cycles=1, speed=0.05):
-    """
-    Fade a color in and out smoothly.
-    r, g, b: Target max color (0-255)
-    """
+    if CURRENT_MODE != MODE_AUTO: return
+    
     for _ in range(cycles):
-        # Fade In
-        for i in range(0, 101, 5):  # 0% to 100%
+        for i in range(0, 101, 5):
             factor = i / 100
             set_led(int(r * factor), int(g * factor), int(b * factor))
             time.sleep(speed)
-        # Fade Out
-        for i in range(100, -1, -5):  # 100% to 0%
+        for i in range(100, -1, -5):
             factor = i / 100
             set_led(int(r * factor), int(g * factor), int(b * factor))
             time.sleep(speed)
     led_off()
 
-# --- LED State Functions ---
+# --- System Functions (Only run if Auto) ---
 
 def led_wifi_wait():
-    # Breathe Yellow
+    # Always allow WiFi feedback during boot (usually mode is auto default)
     breathe(255, 200, 0, cycles=1, speed=0.02)
 
 def led_wifi_success():
-    # Flash Green
     for _ in range(3):
         set_led(0, 255, 0)
         time.sleep(0.1)
-        led_off()
+        set_led(0, 0, 0)
         time.sleep(0.1)
 
 def led_wifi_fail():
-    set_led(255, 0, 0) # Red
+    set_led(255, 0, 0)
 
 def led_syncing():
-    set_led(0, 0, 255) # Blue
+    if CURRENT_MODE == MODE_AUTO: set_led(0, 0, 255)
 
 def led_heartbeat():
-    # Subtle White flash
-    set_led(64, 64, 64) 
-    time.sleep(0.1)
-    led_off()
+    if CURRENT_MODE == MODE_AUTO:
+        set_led(64, 64, 64) 
+        time.sleep(0.1)
+        led_off()
 
 def led_minute_update():
-    # Cyan
-    set_led(0, 255, 255)
+    if CURRENT_MODE == MODE_AUTO: set_led(0, 255, 255)
 
 def led_web_request():
-    # Blue
-    set_led(0, 0, 255)
+    if CURRENT_MODE == MODE_AUTO: set_led(0, 0, 255)
