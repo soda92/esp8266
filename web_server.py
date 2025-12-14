@@ -12,25 +12,34 @@ app = Microdot()
 
 @app.route('/api/message', methods=['GET', 'POST'])
 async def api_message(request):
-    # Shared state from main.py (we need a way to store it)
-    # Simple solution: Use a module-level variable in web_server that main reads
     global custom_message
     if request.method == 'POST':
+        print(f"Message POST: {request.json}") # Debug
         try:
-            custom_message = request.json.get("message", "")
-            print(f"New Message: '{custom_message}'")
+            data = request.json
+            if data is None:
+                return {'error': 'no json received'}, 400
+                
+            custom_message = data.get("message", "")
+            print(f"Set Message to: '{custom_message}'")
             return {'status': 'ok'}
-        except:
-            return {'error': 'invalid json'}, 400
+        except Exception as e:
+            print(f"Msg Error: {e}")
+            return {'error': str(e)}, 400
     else:
         return {'message': custom_message}
 
 @app.route('/api/settings', methods=['GET', 'POST'])
 async def api_settings(request):
     if request.method == 'POST':
+        print(f"Settings POST: {request.json}") # Debug
         try:
             data = request.json
+            if data is None: 
+                return {'error': 'no json'}, 400
+                
             if "led" in data:
+                print(f"Toggle LED: {data['led']}")
                 led_manager.toggle(data["led"])
             if "brightness" in data:
                 led_manager.set_brightness(data["brightness"])
@@ -41,6 +50,7 @@ async def api_settings(request):
                 led_manager.set_manual_pixel(p.get("index", 0), p.get("r", 0), p.get("g", 0), p.get("b", 0))
             return {'status': 'ok'}
         except Exception as e:
+            print(f"Settings Error: {e}")
             return {'error': str(e)}, 400
     else:
         s = os.statvfs('/')

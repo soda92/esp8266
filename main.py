@@ -81,8 +81,8 @@ async def main_loop():
         weather_api.update()
         led_manager.led_off()
     
-    # Start Web Server
-    await web_server.start_server()
+    # Start Web Server (Background Task)
+    uasyncio.create_task(web_server.start_server())
     
     uasyncio.create_task(heartbeat_task())
     uasyncio.create_task(weather_task())
