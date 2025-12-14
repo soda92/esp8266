@@ -52,6 +52,11 @@ const setup = async () => {
 </template>
 
 <style scoped>
-.login-card { max-width: 350px; margin: 50px auto; text-align: center; }
-.error { color: #dc3545; margin: 10px 0; font-size: 0.9rem; }
+.login-card { max-width: 350px; margin: 60px auto; text-align: center; padding: 2rem; border-radius: 12px; background: white; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+h2 { margin-bottom: 10px; color: #333; }
+p { color: #666; margin-bottom: 20px; font-size: 0.95rem; }
+input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #e1e4e8; border-radius: 8px; font-size: 16px; box-sizing: border-box; transition: border-color 0.2s; }
+input:focus { border-color: #007bff; outline: none; }
+button { width: 100%; padding: 12px; font-size: 16px; margin-top: 10px; }
+.error { color: #dc3545; margin-bottom: 15px; font-size: 0.9rem; background: #fff5f5; padding: 8px; border-radius: 6px; }
 </style>

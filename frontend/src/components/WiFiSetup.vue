@@ -136,18 +136,28 @@ const factoryReset = async () => {
 </template>
 
 <style scoped>
-.wifi-list { list-style: none; padding: 0; margin: 15px 0; border: 1px solid #e1e4e8; border-radius: 8px; max-height: 250px; overflow-y: auto; }
-.wifi-list li { padding: 12px; border-bottom: 1px solid #e1e4e8; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-.wifi-list li:hover { background: #f8f9fa; }
+.wifi-list { list-style: none; padding: 0; margin: 15px 0; border: 1px solid #e1e4e8; border-radius: 8px; max-height: 200px; overflow-y: auto; background: #f9f9f9; }
+.wifi-list li { padding: 12px 15px; border-bottom: 1px solid #e1e4e8; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+.wifi-list li:hover { background: #eef2f5; }
 .wifi-list li:last-child { border-bottom: none; }
-.ssid { font-weight: 500; }
-.rssi { font-size: 0.8rem; color: #888; background: #eee; padding: 2px 6px; border-radius: 4px; }
-.form input { margin-bottom: 10px; }
-.upload-area { border: 2px dashed #e1e4e8; border-radius: 12px; padding: 20px; text-align: center; }
-.hint { font-size: 0.9rem; color: #666; margin-bottom: 15px; }
-.danger-zone { border: 1px solid #ffcccc; background: #fff5f5; }
-.danger-zone h2 { color: #cc0000; }
-button.danger { background: #dc3545; color: white; }
-button.danger:hover { background: #bd2130; }
-.serial-input { border-color: #ffcccc; }
+.ssid { font-weight: 500; color: #333; }
+.rssi { font-size: 0.75rem; color: #666; background: #dfe1e5; padding: 2px 6px; border-radius: 4px; }
+
+.form input { margin-bottom: 10px; width: 100%; box-sizing: border-box; }
+
+.upload-area { border: 2px dashed #e1e4e8; border-radius: 12px; padding: 25px; text-align: center; transition: border-color 0.2s; background: #fafafa; }
+.upload-area:hover { border-color: #007bff; background: #f0f7ff; }
+.file-label { display: inline-block; cursor: pointer; }
+.file-label input { display: none; }
+.file-label span { background: #6c757d; color: white; padding: 10px 20px; border-radius: 6px; font-size: 0.9rem; transition: background 0.2s; }
+.file-label span:hover { background: #5a6268; }
+
+.hint { font-size: 0.85rem; color: #666; margin-bottom: 15px; line-height: 1.4; }
+
+.danger-zone { border: 1px solid #ffcccc; background: #fffbfb; margin-top: 20px; }
+.danger-zone h2 { color: #d93025; font-size: 1.1rem; }
+.serial-input { border-color: #ffcccc; background: white; }
+.serial-input:focus { border-color: #d93025; }
+button.danger { background: #d93025; color: white; margin-top: 10px; }
+button.danger:hover { background: #c52b1e; }
 </style>
