@@ -42,10 +42,12 @@ def get_serial():
         return "UNKNOWN"
 
 def factory_reset(serial_input):
-    # If serial matches, delete auth.json
+    # If serial matches, delete auth.json and wifi.json
     real_serial = get_serial()
     if serial_input == real_serial:
         try: os.remove(AUTH_FILE)
+        except: pass
+        try: os.remove("wifi.json")
         except: pass
         return True
     return False

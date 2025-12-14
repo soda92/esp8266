@@ -16,10 +16,23 @@ const imageSrc = ref('')
 let cropper = null
 const imageRef = ref(null)
 
+const authFetch = async (url, options = {}) => {
+  const token = localStorage.getItem('token')
+  const headers = { ...options.headers }
+  if (token) headers['X-Token'] = token
+  
+  const res = await fetch(url, { ...options, headers })
+  if (res.status === 401) {
+    location.reload()
+    throw new Error('Unauthorized')
+  }
+  return res
+}
+
 const updateMessage = async () => {
   sending.value = true
   try {
-    await fetch('/api/message', {
+    await authFetch('/api/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: newMessage.value })
@@ -40,7 +53,7 @@ const clearMessage = async () => {
 
 // Settings Helpers
 const updateSettings = async (body) => {
-  await fetch('/api/settings', {
+  await authFetch('/api/settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body)
@@ -136,7 +149,7 @@ const uploadCropped = async () => {
   }
   
   try {
-      await fetch('/api/display/image', { method: 'POST', body: buffer })
+      await authFetch('/api/display/image', { method: 'POST', body: buffer })
       emit('refresh')
       showCropper.value = false
   } catch (e) {
